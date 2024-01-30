@@ -270,6 +270,9 @@ class PalObject:
         self._human = human
         self._tower = tower
 
+    def is_human(self):
+        return self._human
+
     def GetName(self):
         return self._name
 
@@ -456,6 +459,7 @@ class PalType(Enum):
     Hunter_Shotgun = PalObject("Syndicate Hunter", Elements.NONE, human=True)#
     Hunter_Handgun = PalObject("Syndicate Thug (Handgun)", Elements.NONE, human=True)#
     SalesPerson = PalObject("Wandering Merchant", Elements.NONE, human=True)#
+    RandomEventShop = PalObject("Random Event Shop", Elements.NONE, human=True)  #
 
     @classmethod
     def find(self, value):
@@ -513,6 +517,10 @@ class PalEntity:
 
         self._workspeed = self._obj['CraftSpeed']['value']
 
+        if not "Talent_HP" in self._obj:
+            self._obj['Talent_HP'] = EmptyMeleeObject.copy()
+        self._hp = self._obj['Talent_HP']['value']
+
         if not "Talent_Melee" in self._obj:
             self._obj['Talent_Melee'] = EmptyMeleeObject.copy()
         self._melee = self._obj['Talent_Melee']['value']
@@ -551,6 +559,16 @@ class PalEntity:
             self._nickname = self._obj['NickName']['value']
 
         self.isTower = self._type.value.IsTower()
+
+    def SetGender(self, target_gender=None):
+        if target_gender is None or 'Gender' not in self._obj:
+            return
+        if target_gender == 'Female':
+            self._obj['Gender']['value']['value'] = "EPalGenderType::Female"
+            self._gender = "Female ♀"
+        elif target_gender == 'Male':
+            self._obj['Gender']['value']['value'] = "EPalGenderType::Male"
+            self._gender = "Male ♂"
 
     def SwapGender(self):
         if self._obj['Gender']['value']['value'] == "EPalGenderType::Male":
@@ -596,19 +614,26 @@ class PalEntity:
         return self._melee
 
     def SetAttackMelee(self, value):
-        self._obj['Talent_Melee']['value'] = self._melee = value
+        if 'Talent_Melee' in self._obj:
+            self._obj['Talent_Melee']['value'] = self._melee = value
 
     def GetAttackRanged(self):
         return self._ranged
 
     def SetAttackRanged(self, value):
-        self._obj['Talent_Shot']['value'] = self._ranged = value
+        if 'Talent_Shot' in self._obj:
+            self._obj['Talent_Shot']['value'] = self._ranged = value
+
+    def set_hp(self, value):
+        if 'Talent_HP' in self._obj:
+            self._obj['Talent_HP']['value'] = self._hp = value
 
     def GetDefence(self):
         return self._defence
 
     def SetDefence(self, value):
-        self._obj['Talent_Defense']['value'] = self._defence = value
+        if 'Talent_Defense' in self._obj:
+            self._obj['Talent_Defense']['value'] = self._defence = value
 
     def GetName(self):
         return self.GetObject().GetName()
@@ -665,9 +690,33 @@ class PalEntity:
     def GetNickname(self):
         return self.GetName() if self._nickname == "" else self._nickname
 
+    def remove_nickname(self):
+        if 'NickName' in self._obj and self._obj['NickName']:
+            del self._obj['NickName']
+
     def GetFullName(self):
         return self.GetObject().GetName() + (" 💀" if self.isBoss else "") + (" ♖" if self.isTower else "" ) + (" ✨" if self.isLucky else "") + (f" - '{self._nickname}'" if not self._nickname == "" else "")
-    
+
+    def set_statue_bonus(self):
+        self._obj['Rank_HP'] = {"id": None, "type": "IntProperty", "value": 10}
+        self._obj['Rank_Attack'] = {"id": None, "type": "IntProperty", "value": 10}
+        self._obj['Rank_Defence'] = {"id": None, "type": "IntProperty", "value": 10}
+        self._obj['Rank_CraftSpeed'] = {"id": None, "type": "IntProperty", "value": 10}
+
+    def set_rare_if_not_boss(self, value=True):
+        if not value:
+            self.isLucky = False
+            if 'IsRarePal' in self._obj:
+                del self._obj['IsRarePal']
+            return
+        else:
+            if self.isBoss or self.isTower or self.GetObject().is_human():
+                self.isLucky = False
+            else:
+                self._obj['IsRarePal'] = {"id": None, "type": "BoolProperty", "value": True}
+                self.isLucky = True
+
+
     def SetLucky(self, v=True):
         self._obj["IsRarePal"]['value'] = self.isLucky = v
         self.SetType(self._type.value.GetName())

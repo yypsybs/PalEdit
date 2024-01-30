@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
+import datetime
 import json
 import os
+from tkinter import messagebox
+
 from lib.gvas import GvasFile
 from lib.noindent import CustomEncoder
 from lib.palsav import compress_gvas_to_sav, decompress_sav_to_gvas
@@ -67,30 +70,30 @@ def main():
 
 
 def convert_sav_to_json(filename, output_path, minify):
-    print(f"Converting {filename} to JSON, saving to {output_path}")
+    print(f"{datetime.datetime.now()} Converting {filename} to JSON, saving to {output_path}")
     if os.path.exists(output_path):
         print(f"{output_path} already exists, this will overwrite the file")
-    print(f"Decompressing sav file")
+    print(f"{datetime.datetime.now()} Decompressing sav file")
     with open(filename, "rb") as f:
         data = f.read()
         raw_gvas, _ = decompress_sav_to_gvas(data)
-    print(f"Loading GVAS file")
+    print(f"{datetime.datetime.now()} Loading GVAS file")
     gvas_file = GvasFile.read(raw_gvas, PALWORLD_TYPE_HINTS, PALWORLD_CUSTOM_PROPERTIES)
-    print(f"Writing JSON to {output_path}")
+    print(f"{datetime.datetime.now()} Writing JSON to {output_path}")
     with open(output_path, "w", encoding="utf8") as f:
         indent = None if minify else "\t"
         json.dump(gvas_file.dump(), f, indent=indent, cls=CustomEncoder)
 
 
 def convert_json_to_sav(filename, output_path):
-    print(f"Converting {filename} to SAV, saving to {output_path}")
+    print(f"{datetime.datetime.now()} Converting {filename} to SAV, saving to {output_path}")
     if os.path.exists(output_path):
         print(f"{output_path} already exists, this will overwrite the file")
-    print(f"Loading JSON from {filename}")
+    print(f"{datetime.datetime.now()} Loading JSON from {filename}")
     with open(filename, "r", encoding="utf8") as f:
         data = json.load(f)
     gvas_file = GvasFile.load(data)
-    print(f"Compressing SAV file")
+    print(f"{datetime.datetime.now()} Compressing SAV file")
     if (
         "Pal.PalWorldSaveGame" in gvas_file.header.save_game_class_name
         or "Pal.PalLocalWorldSaveGame" in gvas_file.header.save_game_class_name
@@ -101,9 +104,11 @@ def convert_json_to_sav(filename, output_path):
     sav_file = compress_gvas_to_sav(
         gvas_file.write(PALWORLD_CUSTOM_PROPERTIES), save_type
     )
-    print(f"Writing SAV file to {output_path}")
+    print(f"{datetime.datetime.now()} Writing SAV file to {output_path}")
     with open(output_path, "wb") as f:
         f.write(sav_file)
+    print(f"{datetime.datetime.now()} Wrote SAV file")
+    messagebox.showinfo('success', "convert json to sav success")
 
 
 def confirm_prompt(question: str) -> bool:

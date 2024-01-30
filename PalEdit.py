@@ -1,4 +1,5 @@
 import os, webbrowser, json, time, uuid
+import datetime
 
 import SaveConverter
 
@@ -67,7 +68,8 @@ def getSelectedPalData():
     i = int(listdisplay.curselection()[0])
     pal = palbox[players[current.get()]][i]
     print(f"Get Data: {pal.GetNickname()}")    
-    print(f"{pal._obj}")  
+    print(f"{json.dumps(pal._obj, indent=4, ensure_ascii=TRUE)}")
+
 
 def setpreset(preset):
     if not isPalSelected():
@@ -76,6 +78,11 @@ def setpreset(preset):
     pal = palbox[players[current.get()]][i] # seems global palbox is not necessary
 
     match preset:
+        case "none":
+            skills[3].set("None")
+            skills[2].set("None")
+            skills[1].set("None")
+            skills[0].set("None")
         case "worker":
             skills[0].set("Artisan")
             skills[1].set("Serious")
@@ -121,6 +128,8 @@ def setpreset(preset):
 
     refresh(i)
 
+def make_none():
+    setpreset("none")
 def makeworker():
     setpreset("worker")
 def makerunner():
@@ -259,7 +268,7 @@ def loadfile():
     skilllabel.config(text="Loading save, please be patient...")
 
     file = askopenfilename(filetype=[("All files", "*.sav *.sav.json *.pson"),("Palworld Saves", "*.sav *.sav.json"),("Palworld Box", "*.pson")])
-    print(f"Opening file {file}")
+    print(f"{datetime.datetime.now()} Opening file {file}")
 
     if not file.endswith(".pson") and not file.endswith("Level.sav.json"):
         if file.endswith("Level.sav"):
@@ -373,7 +382,7 @@ def savefile():
         refresh(i)
     
     file = asksaveasfilename(filetype=[("All files", "*.sav.json *.pson"),("Palworld Saves", "*.sav.json"),("Palworld Box", "*.pson")])
-    print(f"Opening file {file}")
+    print(f"{datetime.datetime.now()} Opening file {file}")
 
     if not file.endswith(".pson") and not file.endswith("Level.sav.json"):
         messagebox.showerror("Incorrect file", "You can only save to an existing Level.sav.json or a new .pson file")
@@ -387,28 +396,66 @@ def savefile():
     jump()
     messagebox.showinfo("Done", "Done saving!")
 
+
+def modify_all():
+    global palbox
+    total = len(palbox)
+    now_no = 1
+    for pal in palbox[players[current.get()]]:
+        print(f"processing {now_no} of {total}")
+        now_no = now_no + 1
+        # skill
+        skills[3].set("None")
+        skills[2].set("None")
+        skills[1].set("None")
+        skills[0].set("None")
+        # Gender
+        pal.SetGender('Female')
+        # nickname
+        pal.remove_nickname()
+        # exp (if level selected)
+        pal.SetLevel(1)
+        # rank (if rank selected)
+        pal.SetRank(5)
+        # attributes (if attributes selected)
+        pal.SetAttackMelee(100)
+        pal.SetAttackRanged(100)
+        pal.SetDefence(100)
+        pal.set_hp(100)
+        # statue bonus
+        pal.set_statue_bonus()
+        # rare
+        pal.set_rare_if_not_boss()
+    print(f'modify_all finished')
+
+
 def savepson(filename):
-    f = open(filename, "w", encoding="utf8")
-    if 'properties' in data:
-        json.dump(data['properties']['worldSaveData']['value']['CharacterSaveParameterMap']['value'], f, indent=4)
-    else:
-        json.dump(data, f, indent=4)
-    f.close()
+    with open(filename, "w", encoding="utf8") as f:
+        if 'properties' in data:
+            json.dump(data['properties']['worldSaveData']['value']['CharacterSaveParameterMap']['value'], f, indent=4)
+        else:
+            json.dump(data, f, indent=4)
+    print(f'{datetime.datetime.now()} save pson success')
+
 
 def savejson(filename):
-    f = open(filename, "r", encoding="utf8")
-    svdata = json.loads(f.read())
-    f.close()
+    print(f'{datetime.datetime.now()} loading {filename}')
+    with  open(filename, "r", encoding="utf8") as f:
+        svdata = json.loads(f.read())
 
     if 'properties' in data:
         svdata['properties']['worldSaveData']['value']['CharacterSaveParameterMap']['value'] = data['properties']['worldSaveData']['value']['CharacterSaveParameterMap']['value']
     else:
         svdata['properties']['worldSaveData']['value']['CharacterSaveParameterMap']['value'] = data
 
-    f = open(filename, "w", encoding="utf8")
-    json.dump(svdata, f)
-    f.close()
-
+    import os
+    if os.path.exists(filename):
+        os.remove(filename)
+    print(f'{datetime.datetime.now()} dumping {filename}')
+    with open(filename, "w", encoding="utf8") as f:
+        json.dump(svdata, f)
+    print(f'{datetime.datetime.now()} dumped {filename}')
+    messagebox.showinfo("success", "save json success")
     changetext(-1)
 
 def generateguid():
@@ -466,11 +513,11 @@ def converttojson():
     skilllabel.config(text="Converting... this may take a while.")
     
     file = askopenfilename(filetype=[("All files", "*.sav")])
-    print(f"Opening file {file}")
+    print(f"{datetime.datetime.now()} Opening file {file}")
 
     doconvertjson(file)
 
-def doconvertjson(file, compress=False):
+def doconvertjson(file, compress=True):
     SaveConverter.convert_sav_to_json(file, file.replace(".sav", ".sav.json"), compress)
 
     load(file.replace(".sav", ".sav.json"))
@@ -483,7 +530,7 @@ def converttosave():
     skilllabel.config(text="Converting... this may take a while.")
     
     file = askopenfilename(filetype=[("All files", "*.sav.json")])
-    print(f"Opening file {file}")
+    print(f"{datetime.datetime.now()} Opening file {file}")
 
     doconvertsave(file)
 
@@ -561,6 +608,7 @@ filemenu.add_command(label="Save Changes", command=savefile)
 tools.add_cascade(label="File", menu=filemenu, underline=0)
 
 toolmenu = Menu(tools, tearoff=0)
+toolmenu.add_command(label="全体帕鲁 变为稀有+雌性+无昵称+1级+4星+满个体值+满雕像+清空被动技能", command=modify_all)
 toolmenu.add_command(label="Generate GUID", command=generateguid)
 toolmenu.add_command(label="Debug", command=toggleDebug)
 
@@ -818,6 +866,12 @@ presetTitle = Label(framePresetsTitle, text='Presets:', anchor='w', bg="darkgrey
 
 framePresetsButtons = Frame(framePresets, relief="groove", borderwidth=4)
 framePresetsButtons.pack(fill=BOTH, expand=True)
+
+framePresetsButtons0 = Frame(framePresetsButtons)
+framePresetsButtons0.pack(fill=BOTH, expand=True)
+makeworkerBtn = Button(framePresetsButtons0, text="None", command=make_none)
+makeworkerBtn.config(font=("Arial", 12))
+makeworkerBtn.pack(side=LEFT, expand=True, fill=BOTH)
 
 framePresetsButtons1 = Frame(framePresetsButtons)
 framePresetsButtons1.pack(fill=BOTH, expand=True)
